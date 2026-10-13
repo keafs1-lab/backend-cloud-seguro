@@ -1,0 +1,28 @@
+{
+  "name": "backend-cloud",
+  "version": "1.1.0",
+  "description": "API REST de usuários com proteções básicas de segurança",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "check": "node --check src/server.js && node --check src/database.js && node --check src/models/Usuario.js && node --check src/routes/usuarios.js && node --check src/routes/auth.js && node --check src/middleware/auth.js"
+  },
+  "keywords": ["nodejs", "express", "postgresql", "security"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.23.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.8",
+    "zod": "^4.1.12"
+  }
+}
