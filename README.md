@@ -65,18 +65,6 @@ O frontend React/Vite fica na pasta `frontend/` e pode ser executado ou publicad
 
 O token é mantido em `sessionStorage` somente na aba atual e removido ao sair. O frontend não oferece criação de administradores: novos cadastros seguem a regra da API e recebem o papel `user`.
 
-## Rotas
-
-| Método | Caminho | Acesso | Descrição |
-|---|---|---|---|
-| GET | `/` | Público | Verifica se o processo HTTP responde |
-| GET | `/health` | Público | Verifica a conexão com o banco sem expor detalhes internos |
-| POST | `/usuarios` | Público | Cadastra conta comum; senha com pelo menos 12 caracteres |
-| POST | `/auth/login` | Público, com limite de tentativas | Valida credenciais e retorna JWT |
-| GET | `/usuarios` | Administrador | Lista usuários sem incluir senhas |
-| GET | `/usuarios/:id` | Próprio usuário ou administrador | Consulta um usuário |
-| PUT | `/usuarios/:id` | Próprio usuário ou administrador | Altera nome, e-mail ou senha próprios; admin pode alterar qualquer conta |
-| DELETE | `/usuarios/:id` | Administrador | Exclui um usuário |
 
 Envie o token retornado no login em requisições protegidas:
 
