@@ -6,7 +6,6 @@ import {
   CircleAlert,
   KeyRound,
   LogOut,
-  MoreHorizontal,
   Pencil,
   Plus,
   Search,
@@ -42,7 +41,9 @@ async function request(path, { token, method = 'GET', body } = {}) {
   const contentType = response.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await response.json() : null;
   if (!response.ok) {
-    throw new Error(data?.erro || `A solicitação falhou (${response.status}).`);
+    const error = new Error(data?.erro || `A solicitação falhou (${response.status}).`);
+    error.status = response.status;
+    throw error;
   }
   return data;
 }
@@ -169,24 +170,66 @@ function UserModal({ user, onClose, onSave }) {
   );
 }
 
+function CreateUserModal({ onClose, onCreate }) {
+  const [form, setForm] = useState({ nome: '', email: '', senha: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(event) {
+    event.preventDefault();
+    setBusy(true);
+    setError('');
+    try {
+      await onCreate(form);
+      onClose();
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+      <section className="modal" role="dialog" aria-modal="true" aria-labelledby="create-title">
+        <div className="modal-heading"><div><p className="eyebrow">NOVA CONTA · ACESSO PADRÃO</p><h2 id="create-title">Adicionar usuário</h2></div><button className="icon-button" onClick={onClose} aria-label="Fechar"><X size={19} /></button></div>
+        <form className="edit-form" onSubmit={submit}>
+          <label>Nome<input value={form.nome} onChange={event => setForm(current => ({ ...current, nome: event.target.value }))} minLength={2} maxLength={100} required placeholder="Nome completo" /></label>
+          <label>E-mail<input type="email" value={form.email} onChange={event => setForm(current => ({ ...current, email: event.target.value }))} maxLength={254} required placeholder="pessoa@exemplo.com" /></label>
+          <label>Senha inicial<input type="password" value={form.senha} onChange={event => setForm(current => ({ ...current, senha: event.target.value }))} minLength={12} maxLength={200} required placeholder="Mínimo de 12 caracteres" /></label>
+          <p className="modal-note"><ShieldCheck size={15} />A API cria novas contas com papel de usuário. O formulário não pode conceder acesso de administrador.</p>
+          {error && <p className="form-message error-message"><CircleAlert size={16} />{error}</p>}
+          <div className="modal-actions"><button className="secondary-button" type="button" onClick={onClose}>Cancelar</button><button className="primary-button" type="submit" disabled={busy}>{busy ? 'Criando...' : 'Criar conta'}</button></div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function Dashboard({ session, onLogout }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [editing, setEditing] = useState(null);
+  const [creating, setCreating] = useState(false);
   const [notice, setNotice] = useState('');
+  const [apiStatus, setApiStatus] = useState('checking');
   const isAdmin = session.usuario.role === 'admin';
 
   async function loadUsers() {
     setLoading(true);
     setError('');
     try {
+      const healthResponse = await fetch(`${API_URL}/health`);
+      setApiStatus(healthResponse.ok ? 'online' : 'offline');
       const path = isAdmin ? '/usuarios' : `/usuarios/${session.usuario.id}`;
       const result = await request(path, { token: session.token });
       setUsers(Array.isArray(result) ? result : [result]);
     } catch (requestError) {
-      if (requestError.message.includes('401')) onLogout();
+      setApiStatus('offline');
+      if (requestError.status === 401) onLogout();
       else setError(requestError.message);
     } finally {
       setLoading(false);
@@ -195,12 +238,24 @@ function Dashboard({ session, onLogout }) {
 
   useEffect(() => { loadUsers(); }, []);
 
-  const filteredUsers = users.filter(user => `${user.nome} ${user.email} ${user.role}`.toLowerCase().includes(query.toLowerCase()));
+  const filteredUsers = users.filter(user => {
+    const matchesQuery = `${user.nome} ${user.email} ${user.role}`.toLowerCase().includes(query.toLowerCase());
+    return matchesQuery && (roleFilter === 'all' || user.role === roleFilter);
+  });
+  const adminCount = users.filter(user => user.role === 'admin').length;
+  const memberCount = users.filter(user => user.role === 'user').length;
 
   async function saveUser(id, body) {
     const result = await request(`/usuarios/${id}`, { token: session.token, method: 'PUT', body });
     setUsers(current => current.map(user => user.id === id ? result : user));
     setNotice('Alterações salvas.');
+    window.setTimeout(() => setNotice(''), 2800);
+  }
+
+  async function createUser(body) {
+    const createdUser = await request('/usuarios', { token: session.token, method: 'POST', body });
+    setUsers(current => [...current, createdUser].sort((first, second) => first.id - second.id));
+    setNotice('Conta criada com acesso de usuário.');
     window.setTimeout(() => setNotice(''), 2800);
   }
 
@@ -222,7 +277,7 @@ function Dashboard({ session, onLogout }) {
         <a className="brand-lockup dashboard-brand" href="#inicio"><span className="brand-mark"><UsersRound size={18} /></span><span>backend<span className="brand-light">cloud</span></span></a>
         <div className="workspace-label">ESPAÇO DE TRABALHO</div>
         <button className="nav-item active"><UsersRound size={17} />Usuários<span className="nav-count">{users.length}</span></button>
-        <div className="sidebar-bottom"><div className="connection-card"><span className="status-dot" /><span>API conectada</span></div><button className="nav-item logout-button" onClick={onLogout}><LogOut size={17} />Sair da conta</button></div>
+        <div className="sidebar-bottom"><div className={`connection-card ${apiStatus === 'offline' ? 'connection-offline' : ''}`}><span className={`status-dot ${apiStatus === 'offline' ? 'offline-dot' : ''}`} /><span>{apiStatus === 'checking' ? 'Verificando API' : apiStatus === 'online' ? 'API disponível' : 'API indisponível'}</span></div><button className="nav-item logout-button" onClick={onLogout}><LogOut size={17} />Sair da conta</button></div>
       </aside>
 
       <main className="main-area">
@@ -235,13 +290,15 @@ function Dashboard({ session, onLogout }) {
           {notice && <div className="toast"><Check size={16} />{notice}</div>}
 
           <div className="metrics-row">
-            <article className="metric-card"><div className="metric-icon mint-icon"><UsersRound size={18} /></div><span className="metric-label">{isAdmin ? 'CONTAS CADASTRADAS' : 'SUA CONTA'}</span><strong>{loading ? '—' : isAdmin ? users.length.toString().padStart(2, '0') : '01'}</strong><span className="metric-foot">{isAdmin ? 'registros no diretório' : 'perfil autenticado'}</span></article>
-            <article className="metric-card"><div className="metric-icon yellow-icon"><ShieldCheck size={18} /></div><span className="metric-label">SEU ACESSO</span><strong className="role-value">{isAdmin ? 'Admin' : 'Usuário'}</strong><span className="metric-foot">permissões da conta</span></article>
-            <article className="metric-card accent-metric"><span className="metric-label">SESSÃO</span><strong className="session-state"><span className="status-dot" />Ativa</strong><span className="metric-foot">token temporário</span><div className="metric-watermark"><KeyRound size={78} /></div></article>
+            <article className="metric-card"><div className="metric-icon mint-icon"><UsersRound size={18} /></div><span className="metric-label">{isAdmin ? 'CONTAS CADASTRADAS' : 'SEU PERFIL'}</span><strong>{loading ? '—' : isAdmin ? users.length.toString().padStart(2, '0') : '01'}</strong><span className="metric-foot">{isAdmin ? 'registros no diretório' : 'conta autenticada'}</span></article>
+            <article className="metric-card"><div className="metric-icon yellow-icon"><ShieldCheck size={18} /></div><span className="metric-label">{isAdmin ? 'ADMINISTRADORES' : 'SEU ACESSO'}</span><strong className="role-value">{loading ? '—' : isAdmin ? adminCount.toString().padStart(2, '0') : 'Usuário'}</strong><span className="metric-foot">{isAdmin ? 'contas com acesso elevado' : 'acesso padrão da aplicação'}</span></article>
+            <article className="metric-card accent-metric"><span className="metric-label">{isAdmin ? 'USUÁRIOS PADRÃO' : 'IDENTIFICADOR'}</span><strong className="session-state">{loading ? '—' : isAdmin ? memberCount.toString().padStart(2, '0') : `USR-${String(session.usuario.id).padStart(4, '0')}`}</strong><span className="metric-foot">{isAdmin ? 'acesso de membro' : 'referência do seu registro'}</span><div className="metric-watermark"><KeyRound size={78} /></div></article>
           </div>
 
+          {!isAdmin && users[0] && <section className="profile-summary"><div className="profile-avatar">{initials(users[0].nome)}</div><div className="profile-copy"><span className="metric-label">PERFIL DA CONTA</span><h2>{users[0].nome}</h2><p>{users[0].email}</p></div><span className="role-pill"><span />Usuário</span><button className="secondary-button profile-edit" onClick={() => setEditing(users[0])}><Pencil size={15} />Editar perfil</button></section>}
+
           <section className="directory-section">
-            <div className="directory-heading"><div><h2>{isAdmin ? 'Todos os usuários' : 'Dados do perfil'}</h2><p>{isAdmin ? 'Gerencie os dados das contas registradas.' : 'Você só pode acessar seus próprios dados.'}</p></div><div className="directory-actions"><label className="search-field"><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar usuário" aria-label="Buscar usuário" /></label><button className="refresh-button" onClick={loadUsers} title="Atualizar lista" aria-label="Atualizar lista"><ArrowDownUp size={16} /></button></div></div>
+            <div className="directory-heading"><div><h2>{isAdmin ? 'Diretório de usuários' : 'Dados da conta'}</h2><p>{isAdmin ? 'Contas e permissões carregadas do banco de dados.' : 'Seus dados cadastrados na aplicação.'}</p></div><div className="directory-actions">{isAdmin && <button className="primary-button add-user-button" onClick={() => setCreating(true)}><Plus size={16} />Adicionar usuário</button>}<label className="search-field"><Search size={16} /><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar usuário" aria-label="Buscar usuário" /></label>{isAdmin && <select className="role-filter" value={roleFilter} onChange={event => setRoleFilter(event.target.value)} aria-label="Filtrar por permissão"><option value="all">Todos os papéis</option><option value="admin">Administradores</option><option value="user">Usuários</option></select>}<button className="refresh-button" onClick={loadUsers} title="Atualizar lista" aria-label="Atualizar lista"><ArrowDownUp size={16} /></button></div></div>
 
             <div className="table-wrap"><table><thead><tr><th>USUÁRIO</th><th>IDENTIFICADOR</th><th>PERMISSÃO</th><th className="action-column">AÇÕES</th></tr></thead><tbody>
               {loading && <tr><td colSpan="4"><div className="table-state">Carregando usuários...</div></td></tr>}
@@ -254,6 +311,7 @@ function Dashboard({ session, onLogout }) {
         </section>
       </main>
       {editing && <UserModal user={editing} onClose={() => setEditing(null)} onSave={saveUser} />}
+      {creating && <CreateUserModal onClose={() => setCreating(false)} onCreate={createUser} />}
     </div>
   );
 }
