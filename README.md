@@ -31,9 +31,6 @@ A aplicação não cria tabelas automaticamente. Gerencie o schema com migration
    npm --prefix frontend install
    npm --prefix frontend run dev
    ```
-
-3. Para publicar o frontend em um projeto Vercel separado, importe o mesmo repositório e defina `frontend` como Root Directory. Configure a variável `VITE_API_URL` nas variáveis de ambiente desse projeto e faça o deploy. O `frontend/vercel.json` encaminha rotas do app para o ponto de entrada da SPA.
-
 O token expira em 15 minutos por padrão. Faça login novamente quando expirar. Não há refresh token nesta versão.
 Não existe endpoint público para alterar `role`; isso evita que um usuário se promova a administrador.
 
