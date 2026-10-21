@@ -42,6 +42,29 @@ API REST de usuários usando Node.js, Express, Sequelize e PostgreSQL, com prote
 
 A aplicação não cria tabelas automaticamente. Gerencie o schema com migrations controladas.
 
+## Frontend
+
+O frontend React/Vite fica na pasta `frontend/` e pode ser executado ou publicado separadamente da API.
+
+1. Defina `VITE_API_URL` em `frontend/.env.local` com a URL pública da API, sem barra no final:
+
+   ```env
+   VITE_API_URL=https://seu-backend.vercel.app
+   ```
+
+2. Instale as dependências e inicie o frontend:
+
+   ```bash
+   npm --prefix frontend install
+   npm --prefix frontend run dev
+   ```
+
+3. Para publicar o frontend em um projeto Vercel separado, importe o mesmo repositório e defina `frontend` como Root Directory. Configure a variável `VITE_API_URL` nas variáveis de ambiente desse projeto e faça o deploy. O `frontend/vercel.json` encaminha rotas do app para o ponto de entrada da SPA.
+
+4. No projeto Vercel da API, adicione o domínio publicado do frontend em `CORS_ORIGINS`. Essa variável aceita várias origens separadas por vírgula. Faça novo deploy da API após alterar a variável.
+
+O token é mantido em `sessionStorage` somente na aba atual e removido ao sair. O frontend não oferece criação de administradores: novos cadastros seguem a regra da API e recebem o papel `user`.
+
 ## Rotas
 
 | Método | Caminho | Acesso | Descrição |
