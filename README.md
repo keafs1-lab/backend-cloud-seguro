@@ -88,18 +88,6 @@ O token expira em 15 minutos por padrão. Faça login novamente quando expirar. 
 
 Não existe endpoint público para alterar `role`; isso evita que um usuário se promova a administrador.
 
-## Exemplo de cadastro
-
-`POST /usuarios` com `Content-Type: application/json`:
-
-```json
-{
-  "nome": "Pessoa Exemplo",
-  "email": "pessoa@example.com",
-  "senha": "UmaSenhaForteCom12+"
-}
-```
-
 ## Proteções incluídas
 
 - Hash de senhas com bcrypt (12 rounds), aplicado por hooks do modelo ao criar ou alterar a senha.
